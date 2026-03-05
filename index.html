@@ -1503,11 +1503,12 @@ function App() {
     var px = e.clientX - rect.left;
     var py = e.clientY - rect.top;
     var ppu = pixelsPerUnitRef.current;
-    var ypu = fieldDims.height / 100;
-    var oobPxD = (fieldDims.oobBorder || 5) * ppu;
-    var oobPyD = (fieldDims.oobBorder || 5) * ppu;
+    var oobD = fieldDims.oobBorder || 5;
+    var ypu = fieldDims.height / (100 + 2 * oobD);
+    var oobPxD = oobD * ppu;
+    var oobPyD = oobD * ypu;
     var gx = (px - oobPxD) / ppu;
-    var gy = (py - oobPyD) / ppu;
+    var gy = (py - oobPyD) / ypu;
 
     var tapRadius = 48;
     var tappedPlayer = null;
@@ -1549,11 +1550,12 @@ function App() {
     var px = e.clientX - rect.left;
     var py = e.clientY - rect.top;
     var ppu = pixelsPerUnitRef.current;
-    var ypu = fieldDims.height / 100;
-    var oobPxM = (fieldDims.oobBorder || 5) * ppu;
-    var oobPyM = (fieldDims.oobBorder || 5) * ppu;
+    var oobM = fieldDims.oobBorder || 5;
+    var ypu = fieldDims.height / (100 + 2 * oobM);
+    var oobPxM = oobM * ppu;
+    var oobPyM = oobM * ypu;
     var gx = Math.max(1, Math.min(99, (px - oobPxM) / ppu));
-    var gy = Math.max(1, Math.min(99, (py - oobPyM) / ppu));
+    var gy = Math.max(1, Math.min(99, (py - oobPyM) / ypu));
 
     var movedPx = Math.sqrt(
       (px - dr.startX) * (px - dr.startX) + (py - dr.startY) * (py - dr.startY)
@@ -1588,11 +1590,12 @@ function App() {
       var fpx = e.clientX - rect2.left;
       var fpy = e.clientY - rect2.top;
       var fppu = pixelsPerUnitRef.current;
-      var fypu = fieldDims.height / 100;
-      var oobPxU = (fieldDims.oobBorder || 5) * fppu;
-      var oobPyU = (fieldDims.oobBorder || 5) * fppu;
+      var oobU = fieldDims.oobBorder || 5;
+      var fypu = fieldDims.height / (100 + 2 * oobU);
+      var oobPxU = oobU * fppu;
+      var oobPyU = oobU * fypu;
       var fgx = Math.max(1, Math.min(99, (fpx - oobPxU) / fppu));
-      var fgy = Math.max(1, Math.min(99, (fpy - oobPyU) / fppu));
+      var fgy = Math.max(1, Math.min(99, (fpy - oobPyU) / fypu));
       var lastWp2 = dr.waypoints.length > 0 ? dr.waypoints[dr.waypoints.length - 1] : { x: dr.startGx, y: dr.startGy };
       var finalDist = Math.sqrt((fgx - lastWp2.x) * (fgx - lastWp2.x) + (fgy - lastWp2.y) * (fgy - lastWp2.y));
       if (finalDist >= 3) {
@@ -1608,11 +1611,12 @@ function App() {
     var px = e.clientX - rect.left;
     var py = e.clientY - rect.top;
     var ppu = pixelsPerUnitRef.current;
-    var ypu = fieldDims.height / 100;
-    var oobPxT = (fieldDims.oobBorder || 5) * ppu;
-    var oobPyT = (fieldDims.oobBorder || 5) * ppu;
+    var oobT = fieldDims.oobBorder || 5;
+    var ypu = fieldDims.height / (100 + 2 * oobT);
+    var oobPxT = oobT * ppu;
+    var oobPyT = oobT * ypu;
     var gx = (px - oobPxT) / ppu;
-    var gy = (py - oobPyT) / ppu;
+    var gy = (py - oobPyT) / ypu;
 
     if (state.possession === localTeam) {
       // OFFENSE TAP LOGIC
@@ -1786,10 +1790,11 @@ function App() {
   var ppu = pixelsPerUnitRef.current;
   var fw = fieldDims.width;
   var fh = fieldDims.height;
-  var ypu = fh / 100;
   var oobBorder = fieldDims.oobBorder || 5;
+  var totalUnits = 100 + 2 * oobBorder;
+  var ypu = fh / totalUnits;
   var oobPx = oobBorder * ppu;
-  var oobPy = oobBorder * ppu;
+  var oobPy = oobBorder * ypu;
 
   // Shoot indicator check
   var localCarrier = null;
