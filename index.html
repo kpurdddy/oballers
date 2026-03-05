@@ -37,7 +37,7 @@ html, body { width: 100%; height: 100%; background: #1a1a2e; font-family: 'Segoe
 }
 .hud-pill {
   display: flex; align-items: center; gap: 16px;
-  background: rgba(0,0,0,0.45); border-radius: 6px; padding: 4px 14px;
+  background: rgba(0,0,0,0.55); border-radius: 6px; padding: 4px 14px;
   color: white; font-size: 1.1em; pointer-events: none;
 }
 .hud-pill .score { font-weight: bold; font-size: 1.4em; }
@@ -51,9 +51,6 @@ html, body { width: 100%; height: 100%; background: #1a1a2e; font-family: 'Segoe
   position: absolute; top: 4px; left: 8px; z-index: 10;
   background: rgba(0,0,0,0.35); border-radius: 6px; padding: 2px 8px;
   color: #FFD700; font-size: 1.2em; font-weight: bold; pointer-events: none;
-}
-@media (max-width: 600px) {
-  .hud-version { display: none; }
 }
 .landing-wrapper { width: 100%; }
 .landing-content {
@@ -1385,7 +1382,7 @@ function App() {
   var pixelsPerUnitRef = useRef(1);
   var courtRef = useRef(null);
   var containerRef = useRef(null);
-  var fieldDimsHook = useState({ width: 400, height: 440 });
+  var fieldDimsHook = useState({ width: 550, height: 350, oobBorder: 5, scale: 5 });
   var fieldDims = fieldDimsHook[0];
   var setFieldDims = fieldDimsHook[1];
   var dragRef = useRef({ active: false, isDown: false, playerId: null, startX: 0, startY: 0, startGx: 0, startGy: 0, startTime: 0, lastGx: 0, lastGy: 0, waypoints: [] });
@@ -1405,16 +1402,21 @@ function App() {
     var vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
     var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
-    var w = vw;
-    var h = vh;
+    var OOB_BORDER = 5;
+    var COURT_ASPECT = 1.6;
 
-    // Aspect ratio: 1.1:1 (slightly taller than wide), clamp 0.9:1 to 1.4:1
-    var ratio = h / w;
-    if (ratio < 0.9) h = w * 0.9;
-    if (ratio > 1.4) w = h / 1.4;
+    var totalGameW = 100 + OOB_BORDER * 2;
+    var totalGameH = (100 + OOB_BORDER * 2) / COURT_ASPECT;
 
-    pixelsPerUnitRef.current = w / 100;
-    setFieldDims({ width: w, height: h });
+    var scaleByWidth = vw / totalGameW;
+    var scaleByHeight = vh / totalGameH;
+    var scale = Math.min(scaleByWidth, scaleByHeight);
+
+    var w = totalGameW * scale;
+    var h = totalGameH * scale;
+
+    pixelsPerUnitRef.current = scale;
+    setFieldDims({ width: w, height: h, oobBorder: OOB_BORDER, scale: scale });
   }, []);
 
   useEffect(function() {
@@ -1502,8 +1504,10 @@ function App() {
     var py = e.clientY - rect.top;
     var ppu = pixelsPerUnitRef.current;
     var ypu = fieldDims.height / 100;
-    var gx = px / ppu;
-    var gy = py / ypu;
+    var oobPxD = (fieldDims.oobBorder || 5) * ppu;
+    var oobPyD = (fieldDims.oobBorder || 5) * ppu;
+    var gx = (px - oobPxD) / ppu;
+    var gy = (py - oobPyD) / ppu;
 
     var tapRadius = 48;
     var tappedPlayer = null;
@@ -1511,8 +1515,8 @@ function App() {
     for (var i = 0; i < state.players.length; i++) {
       var p = state.players[i];
       if (p.team !== localTeam) continue;
-      var ppx = p.x * ppu;
-      var ppy = p.y * ypu;
+      var ppx = p.x * ppu + oobPxD;
+      var ppy = p.y * ypu + oobPyD;
       var dist = Math.sqrt((px - ppx) * (px - ppx) + (py - ppy) * (py - ppy));
       if (dist < tapRadius && dist < minDist) {
         minDist = dist;
@@ -1546,8 +1550,10 @@ function App() {
     var py = e.clientY - rect.top;
     var ppu = pixelsPerUnitRef.current;
     var ypu = fieldDims.height / 100;
-    var gx = Math.max(1, Math.min(99, px / ppu));
-    var gy = Math.max(1, Math.min(99, py / ypu));
+    var oobPxM = (fieldDims.oobBorder || 5) * ppu;
+    var oobPyM = (fieldDims.oobBorder || 5) * ppu;
+    var gx = Math.max(1, Math.min(99, (px - oobPxM) / ppu));
+    var gy = Math.max(1, Math.min(99, (py - oobPyM) / ppu));
 
     var movedPx = Math.sqrt(
       (px - dr.startX) * (px - dr.startX) + (py - dr.startY) * (py - dr.startY)
@@ -1583,8 +1589,10 @@ function App() {
       var fpy = e.clientY - rect2.top;
       var fppu = pixelsPerUnitRef.current;
       var fypu = fieldDims.height / 100;
-      var fgx = Math.max(1, Math.min(99, fpx / fppu));
-      var fgy = Math.max(1, Math.min(99, fpy / fypu));
+      var oobPxU = (fieldDims.oobBorder || 5) * fppu;
+      var oobPyU = (fieldDims.oobBorder || 5) * fppu;
+      var fgx = Math.max(1, Math.min(99, (fpx - oobPxU) / fppu));
+      var fgy = Math.max(1, Math.min(99, (fpy - oobPyU) / fppu));
       var lastWp2 = dr.waypoints.length > 0 ? dr.waypoints[dr.waypoints.length - 1] : { x: dr.startGx, y: dr.startGy };
       var finalDist = Math.sqrt((fgx - lastWp2.x) * (fgx - lastWp2.x) + (fgy - lastWp2.y) * (fgy - lastWp2.y));
       if (finalDist >= 3) {
@@ -1601,8 +1609,10 @@ function App() {
     var py = e.clientY - rect.top;
     var ppu = pixelsPerUnitRef.current;
     var ypu = fieldDims.height / 100;
-    var gx = px / ppu;
-    var gy = py / ypu;
+    var oobPxT = (fieldDims.oobBorder || 5) * ppu;
+    var oobPyT = (fieldDims.oobBorder || 5) * ppu;
+    var gx = (px - oobPxT) / ppu;
+    var gy = (py - oobPyT) / ppu;
 
     if (state.possession === localTeam) {
       // OFFENSE TAP LOGIC
@@ -1623,8 +1633,8 @@ function App() {
         var p = state.players[i];
         if (p.team !== localTeam) continue;
         if (p.id === carrier.id) continue;
-        var ppx = p.x * ppu;
-        var ppy = p.y * ypu;
+        var ppx = p.x * ppu + oobPxT;
+        var ppy = p.y * ypu + oobPyT;
         var dist = Math.sqrt((px - ppx) * (px - ppx) + (py - ppy) * (py - ppy));
         if (dist < tapRadius && dist < minDist) {
           minDist = dist;
@@ -1644,7 +1654,7 @@ function App() {
       var carrierDistToBasket = getDist(carrier.x, carrier.y, BASKET_X, BASKET_Y);
       if (distToBasket < SHOOT_RANGE && carrierDistToBasket <= SHOOT_RANGE) {
         // Check if the tap is reasonably near the basket area (within 20 game units of basket)
-        if (distToBasket < 20) {
+        if (carrierDistToBasket <= SHOOT_RANGE) {
           AudioSys.kick();
           dispatchAndSend({ type: 'SHOOT' });
           dragRef.current = { active: false, isDown: false, playerId: null, waypoints: [] };
@@ -1663,8 +1673,8 @@ function App() {
         if (state.players[oci].id === state.ball.carrier) { oppCarrier = state.players[oci]; break; }
       }
       if (oppCarrier) {
-        var acx = oppCarrier.x * ppu;
-        var acy = oppCarrier.y * ypu;
+        var acx = oppCarrier.x * ppu + oobPxT;
+        var acy = oppCarrier.y * ypu + oobPyT;
         var carrierDist = Math.sqrt((px - acx) * (px - acx) + (py - acy) * (py - acy));
         if (carrierDist < 48) {
           var nearestDefender = null;
@@ -1695,7 +1705,7 @@ function App() {
       React.createElement('div', { className: 'title-screen' },
         React.createElement('h1', { style: { color: '#f39c12' } }, "O'Ballers"),
         React.createElement('div', { className: 'subtitle' }, '3v3 Half-Court Basketball'),
-        React.createElement('div', { className: 'version' }, 'Alpha 1.0.0 -- test build'),
+        React.createElement('div', { className: 'version' }, 'Alpha 1.1.0 -- test build'),
         titleMode === 'menu' ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' } },
           React.createElement('button', { onClick: startSoloGame }, 'PLAY SOLO'),
           React.createElement('button', {
@@ -1777,6 +1787,9 @@ function App() {
   var fw = fieldDims.width;
   var fh = fieldDims.height;
   var ypu = fh / 100;
+  var oobBorder = fieldDims.oobBorder || 5;
+  var oobPx = oobBorder * ppu;
+  var oobPy = oobBorder * ppu;
 
   // Shoot indicator check
   var localCarrier = null;
@@ -1822,7 +1835,7 @@ function App() {
   return React.createElement('div', { className: 'game-container', ref: containerRef },
     React.createElement('div', { style: { position: 'relative', width: fw, height: fh } },
       // HUD overlay - version text
-      React.createElement('div', { className: 'hud-version' }, 'Alpha 1.0.0 -- test build'),
+      React.createElement('div', { className: 'hud-version' }, 'Alpha 1.1.0 -- test build'),
       // HUD overlay - score
       React.createElement('div', { className: 'hud-overlay' },
         React.createElement('div', { className: 'hud-pill' },
@@ -1855,12 +1868,12 @@ function App() {
         ),
 
         // Court markings
-        renderCourtMarkings(fw, fh, ppu, ypu),
+        renderCourtMarkings(fw, fh, ppu, ypu, oobPx, oobPy),
 
         // Shoot indicator (pulsing ring on basket)
         showShootIndicator ? React.createElement('circle', {
           key: 'shoot-indicator',
-          cx: BASKET_X * ppu, cy: BASKET_Y * ypu,
+          cx: BASKET_X * ppu + oobPx, cy: BASKET_Y * ypu + oobPy,
           r: 4 * ppu,
           fill: 'none', stroke: '#ffd700',
           strokeWidth: 3,
@@ -1868,29 +1881,29 @@ function App() {
         }) : null,
 
         // Ball trail
-        gameState.passBall ? renderBallTrail(gameState, ppu, ypu) : null,
+        gameState.passBall ? renderBallTrail(gameState, ppu, ypu, oobPx, oobPy) : null,
 
         // Route lines
-        renderRouteLines(gameState, ppu, ypu, localTeam),
+        renderRouteLines(gameState, ppu, ypu, localTeam, oobPx, oobPy),
 
         // Route waypoint dots
-        renderRouteWaypoints(gameState, ppu, ypu, localTeam),
+        renderRouteWaypoints(gameState, ppu, ypu, localTeam, oobPx, oobPy),
 
         // Player tokens
-        renderAllPlayers(gameState, ppu, ypu),
+        renderAllPlayers(gameState, ppu, ypu, oobPx, oobPy),
 
         // Ball
         React.createElement('circle', {
           key: 'ball',
-          cx: gameState.ball.x * ppu, cy: gameState.ball.y * ypu,
+          cx: gameState.ball.x * ppu + oobPx, cy: gameState.ball.y * ypu + oobPy,
           r: Math.max(5, ppu * 0.8),
           fill: '#e67e22', stroke: '#a0522d', strokeWidth: 1.5,
         }),
         // Ball seam lines
         React.createElement('line', {
           key: 'ball-seam-h',
-          x1: (gameState.ball.x - 0.6) * ppu, y1: gameState.ball.y * ypu,
-          x2: (gameState.ball.x + 0.6) * ppu, y2: gameState.ball.y * ypu,
+          x1: (gameState.ball.x - 0.6) * ppu + oobPx, y1: gameState.ball.y * ypu + oobPy,
+          x2: (gameState.ball.x + 0.6) * ppu + oobPx, y2: gameState.ball.y * ypu + oobPy,
           stroke: '#333', strokeWidth: 0.8, opacity: 0.4,
         }),
 
@@ -1904,7 +1917,7 @@ function App() {
           var settling = c.settlingUntil > gameState.tick;
           return React.createElement('circle', {
             key: 'carrier-ring',
-            cx: c.x * ppu, cy: c.y * ypu,
+            cx: c.x * ppu + oobPx, cy: c.y * ypu + oobPy,
             r: Math.max(18, ppu * 2.2),
             fill: 'none', stroke: '#fbbf24',
             strokeWidth: settling ? 2 : 3,
@@ -1915,7 +1928,7 @@ function App() {
         // Loose ball indicator
         gameState.ball.loose ? React.createElement('circle', {
           key: 'loose-ring',
-          cx: gameState.ball.x * ppu, cy: gameState.ball.y * ypu,
+          cx: gameState.ball.x * ppu + oobPx, cy: gameState.ball.y * ypu + oobPy,
           r: Math.max(12, ppu * 1.5),
           fill: 'none', stroke: 'white', strokeWidth: 2,
           opacity: 0.5 + 0.3 * Math.sin(gameState.tick * 0.3),
@@ -1985,34 +1998,34 @@ function App() {
 
 // ==================== RENDER HELPERS ====================
 
-function renderCourtMarkings(fw, fh, ppu, ypu) {
+function renderCourtMarkings(fw, fh, ppu, ypu, oobPx, oobPy) {
   var lc = 'rgba(255,255,255,0.8)';
   var elements = [];
 
   // Court outline (baseline at top, half-court at bottom, sidelines)
   elements.push(React.createElement('rect', {
-    key: 'outline', x: 1, y: 1, width: fw - 2, height: fh - 2,
+    key: 'outline', x: oobPx, y: oobPy, width: 100 * ppu, height: 100 * ypu,
     fill: 'none', stroke: lc, strokeWidth: 2,
   }));
 
   // Half-court line (Y=100, bottom)
   elements.push(React.createElement('line', {
-    key: 'halfcourt', x1: 0, y1: fh, x2: fw, y2: fh,
+    key: 'halfcourt', x1: oobPx, y1: 100 * ypu + oobPy, x2: 100 * ppu + oobPx, y2: 100 * ypu + oobPy,
     stroke: lc, strokeWidth: 2,
   }));
 
   // Baseline (Y=0, top)
   elements.push(React.createElement('line', {
-    key: 'baseline', x1: 0, y1: 0, x2: fw, y2: 0,
+    key: 'baseline', x1: oobPx, y1: oobPy, x2: 100 * ppu + oobPx, y2: oobPy,
     stroke: lc, strokeWidth: 2,
   }));
 
   // The key / paint
-  var keyLeft = KEY_LEFT * ppu;
-  var keyRight = KEY_RIGHT * ppu;
-  var keyBottom = KEY_BOTTOM * ypu;
+  var keyLeft = KEY_LEFT * ppu + oobPx;
+  var keyRight = KEY_RIGHT * ppu + oobPx;
+  var keyBottom = KEY_BOTTOM * ypu + oobPy;
   elements.push(React.createElement('rect', {
-    key: 'paint', x: keyLeft, y: 0, width: keyRight - keyLeft, height: keyBottom,
+    key: 'paint', x: keyLeft, y: oobPy, width: keyRight - keyLeft, height: keyBottom - oobPy,
     fill: 'rgba(255,255,255,0.08)', stroke: 'rgba(255,255,255,0.4)', strokeWidth: 2,
   }));
 
@@ -2023,14 +2036,14 @@ function renderCourtMarkings(fw, fh, ppu, ypu) {
   }));
 
   // Three-point arc
-  var arcCx = BASKET_X * ppu;
-  var arcCy = BASKET_Y * ypu;
+  var arcCx = BASKET_X * ppu + oobPx;
+  var arcCy = BASKET_Y * ypu + oobPy;
   var arcR = THREE_POINT_RADIUS * ppu;
   // Only draw the portion within the court (semicircle facing downward)
-  // Start angle: calculate where arc meets the sidelines (x=0 and x=100)
-  // Arc from ~left to ~right, below the basket
-  var startAngle = Math.acos(Math.min(1, (arcCx) / arcR));
-  var endAngle = Math.PI - startAngle;
+  var sidelineLeft = oobPx;
+  var sidelineRight = 100 * ppu + oobPx;
+  var startAngle = Math.acos(Math.min(1, (arcCx - sidelineLeft) / arcR));
+  var endAngle = Math.PI - Math.acos(Math.min(1, (sidelineRight - arcCx) / arcR));
   var x1 = arcCx + arcR * Math.cos(startAngle);
   var y1 = arcCy + arcR * Math.sin(startAngle);
   var x2 = arcCx + arcR * Math.cos(endAngle);
@@ -2038,11 +2051,11 @@ function renderCourtMarkings(fw, fh, ppu, ypu) {
 
   // Connect straight lines from sideline to arc start/end
   elements.push(React.createElement('line', {
-    key: 'three-left', x1: 0, y1: 0, x2: 0, y2: y2,
+    key: 'three-left', x1: sidelineLeft, y1: oobPy, x2: sidelineLeft, y2: y2,
     stroke: 'rgba(255,255,255,0.7)', strokeWidth: 2,
   }));
   elements.push(React.createElement('line', {
-    key: 'three-right', x1: fw, y1: 0, x2: fw, y2: y1,
+    key: 'three-right', x1: sidelineRight, y1: oobPy, x2: sidelineRight, y2: y1,
     stroke: 'rgba(255,255,255,0.7)', strokeWidth: 2,
   }));
 
@@ -2053,9 +2066,9 @@ function renderCourtMarkings(fw, fh, ppu, ypu) {
   }));
 
   // Backboard (horizontal line at y=5)
-  var bbLeft = 45 * ppu;
-  var bbRight = 55 * ppu;
-  var bbY = 5 * ypu;
+  var bbLeft = 45 * ppu + oobPx;
+  var bbRight = 55 * ppu + oobPx;
+  var bbY = 5 * ypu + oobPy;
   elements.push(React.createElement('line', {
     key: 'backboard', x1: bbLeft, y1: bbY, x2: bbRight, y2: bbY,
     stroke: 'white', strokeWidth: 3,
@@ -2064,7 +2077,7 @@ function renderCourtMarkings(fw, fh, ppu, ypu) {
   // Basket (rim)
   elements.push(React.createElement('circle', {
     key: 'basket-rim',
-    cx: BASKET_X * ppu, cy: BASKET_Y * ypu,
+    cx: BASKET_X * ppu + oobPx, cy: BASKET_Y * ypu + oobPy,
     r: 2.5 * ppu,
     fill: 'none', stroke: '#e67e22', strokeWidth: 3,
   }));
@@ -2072,7 +2085,7 @@ function renderCourtMarkings(fw, fh, ppu, ypu) {
   // Half-court center circle (decorative)
   elements.push(React.createElement('circle', {
     key: 'center-circle',
-    cx: 50 * ppu, cy: 100 * ypu,
+    cx: 50 * ppu + oobPx, cy: 100 * ypu + oobPy,
     r: 8 * ppu,
     fill: 'none', stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1.5,
   }));
@@ -2080,14 +2093,14 @@ function renderCourtMarkings(fw, fh, ppu, ypu) {
   return elements;
 }
 
-function renderBallTrail(gameState, ppu, ypu) {
+function renderBallTrail(gameState, ppu, ypu, oobPx, oobPy) {
   var elements = [];
   if (gameState.passBall && gameState.passBall.trail) {
     for (var i = 0; i < gameState.passBall.trail.length; i++) {
       var t = gameState.passBall.trail[i];
       elements.push(React.createElement('circle', {
         key: 'trail_' + i,
-        cx: t.x * ppu, cy: t.y * ypu, r: 4,
+        cx: t.x * ppu + oobPx, cy: t.y * ypu + oobPy, r: 4,
         fill: '#e67e22', opacity: t.opacity * 0.5
       }));
     }
@@ -2095,15 +2108,15 @@ function renderBallTrail(gameState, ppu, ypu) {
   return elements;
 }
 
-function renderRouteLines(gameState, ppu, ypu, team) {
+function renderRouteLines(gameState, ppu, ypu, team, oobPx, oobPy) {
   var elements = [];
   for (var i = 0; i < gameState.players.length; i++) {
     var p = gameState.players[i];
     if (p.team !== team) continue;
     if (!p.route || p.route.length === 0) continue;
-    var points = (p.x * ppu) + ',' + (p.y * ypu);
+    var points = (p.x * ppu + oobPx) + ',' + (p.y * ypu + oobPy);
     for (var j = 0; j < p.route.length; j++) {
-      points += ' ' + (p.route[j].x * ppu) + ',' + (p.route[j].y * ypu);
+      points += ' ' + (p.route[j].x * ppu + oobPx) + ',' + (p.route[j].y * ypu + oobPy);
     }
     elements.push(React.createElement('polyline', {
       key: 'route-' + p.id,
@@ -2118,7 +2131,7 @@ function renderRouteLines(gameState, ppu, ypu, team) {
   return elements;
 }
 
-function renderRouteWaypoints(gameState, ppu, ypu, team) {
+function renderRouteWaypoints(gameState, ppu, ypu, team, oobPx, oobPy) {
   var elements = [];
   for (var i = 0; i < gameState.players.length; i++) {
     var p = gameState.players[i];
@@ -2128,7 +2141,7 @@ function renderRouteWaypoints(gameState, ppu, ypu, team) {
       var wp = p.route[j];
       elements.push(React.createElement('circle', {
         key: 'wp-' + p.id + '-' + j,
-        cx: wp.x * ppu, cy: wp.y * ypu,
+        cx: wp.x * ppu + oobPx, cy: wp.y * ypu + oobPy,
         r: 3,
         fill: p.id === gameState.ball.carrier ? '#ffd700' : '#60a5fa',
         opacity: 0.5,
@@ -2138,7 +2151,7 @@ function renderRouteWaypoints(gameState, ppu, ypu, team) {
   return elements;
 }
 
-function renderAllPlayers(gameState, ppu, ypu) {
+function renderAllPlayers(gameState, ppu, ypu, oobPx, oobPy) {
   var elements = [];
   for (var i = 0; i < gameState.players.length; i++) {
     var p = gameState.players[i];
@@ -2146,8 +2159,8 @@ function renderAllPlayers(gameState, ppu, ypu) {
     var isHome = p.team === 'home';
     var fill = isHome ? '#2563eb' : '#dc2626';
     var stroke = isHome ? '#1d4ed8' : '#b91c1c';
-    var cx = p.x * ppu;
-    var cy = p.y * ypu;
+    var cx = p.x * ppu + oobPx;
+    var cy = p.y * ypu + oobPy;
     var fontSize = Math.max(8, r * 0.55);
 
     elements.push(React.createElement('g', { key: p.id },

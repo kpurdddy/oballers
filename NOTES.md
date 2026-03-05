@@ -1,5 +1,13 @@
 # O'Ballers -- Build Notes
 
+## Alpha 1.1.0 (2026-03-04)
+- Fix: Landscape orientation. calcDims now targets 1.6:1 width:height ratio. Court fills landscape viewport correctly.
+- Fix: Visible OOB border. 5-unit border around the court canvas. Sidelines, baseline, and half-court line are no longer flush against screen edges. Throw-in and baseline OOB events have visible space.
+- Fix: Basket now visible. Landscape + OOB border above Y=0 ensures basket at BASKET_Y=14 is fully on screen.
+- Fix: Shoot tap detection. Was gating on tap distance < 20 from basket. Now correctly uses carrier distance <= SHOOT_RANGE. Mid-range shots work.
+- Fix: HUD score and version text now visible. Removed media query hiding version below 600px. HUD divs anchored inside court container div. Pill background opacity increased.
+- Version updated to Alpha 1.1.0
+
 ## Alpha 1.0.0 (2026-03-04)
 - Foundation build -- 3v3 half court basketball forked from Soccer Mamas Alpha 2.3.0
 - Half court with single basket, three-point arc, key/paint, backboard rendering
