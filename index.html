@@ -28,7 +28,17 @@ html, body { width: 100%; height: 100%; background: #1a1a2e; font-family: 'Segoe
 
 .game-container {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100dvh; width: 100%; padding: 0; touch-action: none; overflow: hidden;
+  height: 100dvh; width: 100dvw; padding: 0; touch-action: none; overflow: hidden;
+  position: fixed; top: 0; left: 0;
+}
+
+.game-container.portrait-rotate {
+  transform: rotate(90deg);
+  transform-origin: center center;
+  width: 100dvh;
+  height: 100dvw;
+  top: calc((100dvh - 100dvw) / 2);
+  left: calc((100dvw - 100dvh) / 2);
 }
 .hud-overlay {
   position: absolute; top: 0; left: 0; width: 100%; z-index: 10;
@@ -1396,34 +1406,78 @@ function App() {
   var joinCode = joinCodeHook[0];
   var setJoinCode = joinCodeHook[1];
 
+  var isPortraitHook = useState(
+    window.matchMedia('(orientation: portrait)').matches
+  );
+  var isPortrait = isPortraitHook[0];
+  var setIsPortrait = isPortraitHook[1];
+
+  var isPortraitRef = useRef(isPortrait);
+  isPortraitRef.current = isPortrait;
+
+  var layoutRef = useRef({ offsetX: 0, offsetY: 0, gameW: 0, gameH: 0, screenW: 0, screenH: 0 });
+
   stateRef.current = gameState;
 
   var calcDims = useCallback(function() {
-    var vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-    var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    var portrait = window.matchMedia('(orientation: portrait)').matches;
+    var availW = portrait ? window.innerHeight : window.innerWidth;
+    var availH = portrait ? window.innerWidth : window.innerHeight;
 
     var OOB_BORDER = 5;
-    var COURT_ASPECT = 1.6;
+    var TARGET_ASPECT = 1.6;
+
+    var deviceRatio = availW / availH;
+    var gameW, gameH, offsetX, offsetY;
+
+    if (deviceRatio > TARGET_ASPECT) {
+      gameH = availH;
+      gameW = availH * TARGET_ASPECT;
+      offsetX = (availW - gameW) / 2;
+      offsetY = 0;
+    } else {
+      gameW = availW;
+      gameH = availW / TARGET_ASPECT;
+      offsetX = 0;
+      offsetY = (availH - gameH) / 2;
+    }
 
     var totalGameW = 100 + OOB_BORDER * 2;
-    var totalGameH = (100 + OOB_BORDER * 2) / COURT_ASPECT;
+    var totalGameH = totalGameW / TARGET_ASPECT;
 
-    var scaleByWidth = vw / totalGameW;
-    var scaleByHeight = vh / totalGameH;
-    var scale = Math.min(scaleByWidth, scaleByHeight);
+    var ppu = gameW / totalGameW;
+    var ypu = gameH / totalGameH;
 
-    var w = totalGameW * scale;
-    var h = totalGameH * scale;
+    pixelsPerUnitRef.current = ppu;
+    setFieldDims({ width: gameW, height: gameH, oobBorder: OOB_BORDER, scale: ppu });
 
-    pixelsPerUnitRef.current = scale;
-    setFieldDims({ width: w, height: h, oobBorder: OOB_BORDER, scale: scale });
+    layoutRef.current = {
+      offsetX: offsetX,
+      offsetY: offsetY,
+      gameW: gameW,
+      gameH: gameH,
+      screenW: portrait ? window.innerHeight : window.innerWidth,
+      screenH: portrait ? window.innerWidth : window.innerHeight
+    };
   }, []);
 
   useEffect(function() {
-    calcDims();
-    window.addEventListener('resize', calcDims);
-    return function() { window.removeEventListener('resize', calcDims); };
-  }, [calcDims]);
+    var mql = window.matchMedia('(orientation: portrait)');
+    function handleOrientation(e) {
+      setIsPortrait(e.matches);
+    }
+    mql.addEventListener('change', handleOrientation);
+    return function() { mql.removeEventListener('change', handleOrientation); };
+  }, []);
+
+  useEffect(function() {
+    function handleResize() {
+      calcDims();
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return function() { window.removeEventListener('resize', handleResize); };
+  }, []);
 
   useEffect(function() {
     if (gameState.phase === 'title') {
@@ -1499,9 +1553,21 @@ function App() {
     if (state.phase !== 'play') return;
     if (state.ball.loose || state.passBall) return;
 
-    var rect = courtRef.current.getBoundingClientRect();
-    var px = e.clientX - rect.left;
-    var py = e.clientY - rect.top;
+    var rawX = e.clientX || (e.touches && e.touches[0].clientX);
+    var rawY = e.clientY || (e.touches && e.touches[0].clientY);
+    if (isPortraitRef.current) {
+      var tempX = rawX;
+      rawX = rawY;
+      rawY = layoutRef.current.screenW - tempX;
+    }
+    var activeX = rawX - layoutRef.current.offsetX;
+    var activeY = rawY - layoutRef.current.offsetY;
+    if (activeX < 0 || activeX > layoutRef.current.gameW || activeY < 0 || activeY > layoutRef.current.gameH) {
+      return;
+    }
+
+    var px = activeX;
+    var py = activeY;
     var ppu = pixelsPerUnitRef.current;
     var oobD = fieldDims.oobBorder || 5;
     var ypu = fieldDims.height / (100 + 2 * oobD);
@@ -1546,9 +1612,21 @@ function App() {
     if (!dr.playerId) return;
     if (stateRef.current.phase !== 'play') return;
 
-    var rect = courtRef.current.getBoundingClientRect();
-    var px = e.clientX - rect.left;
-    var py = e.clientY - rect.top;
+    var rawX = e.clientX || (e.touches && e.touches[0].clientX);
+    var rawY = e.clientY || (e.touches && e.touches[0].clientY);
+    if (isPortraitRef.current) {
+      var tempX = rawX;
+      rawX = rawY;
+      rawY = layoutRef.current.screenW - tempX;
+    }
+    var activeX = rawX - layoutRef.current.offsetX;
+    var activeY = rawY - layoutRef.current.offsetY;
+    if (activeX < 0 || activeX > layoutRef.current.gameW || activeY < 0 || activeY > layoutRef.current.gameH) {
+      return;
+    }
+
+    var px = activeX;
+    var py = activeY;
     var ppu = pixelsPerUnitRef.current;
     var oobM = fieldDims.oobBorder || 5;
     var ypu = fieldDims.height / (100 + 2 * oobM);
@@ -1585,10 +1663,23 @@ function App() {
       return;
     }
 
+    var rawX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) || 0;
+    var rawY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || 0;
+    if (isPortraitRef.current) {
+      var tempX = rawX;
+      rawX = rawY;
+      rawY = layoutRef.current.screenW - tempX;
+    }
+    var activeX = rawX - layoutRef.current.offsetX;
+    var activeY = rawY - layoutRef.current.offsetY;
+    if (activeX < 0 || activeX > layoutRef.current.gameW || activeY < 0 || activeY > layoutRef.current.gameH) {
+      dragRef.current = { active: false, isDown: false, playerId: null, waypoints: [] };
+      return;
+    }
+
     if (dr.active) {
-      var rect2 = courtRef.current.getBoundingClientRect();
-      var fpx = e.clientX - rect2.left;
-      var fpy = e.clientY - rect2.top;
+      var fpx = activeX;
+      var fpy = activeY;
       var fppu = pixelsPerUnitRef.current;
       var oobU = fieldDims.oobBorder || 5;
       var fypu = fieldDims.height / (100 + 2 * oobU);
@@ -1607,9 +1698,8 @@ function App() {
     }
 
     // TAP logic
-    var rect = courtRef.current.getBoundingClientRect();
-    var px = e.clientX - rect.left;
-    var py = e.clientY - rect.top;
+    var px = activeX;
+    var py = activeY;
     var ppu = pixelsPerUnitRef.current;
     var oobT = fieldDims.oobBorder || 5;
     var ypu = fieldDims.height / (100 + 2 * oobT);
@@ -1709,7 +1799,7 @@ function App() {
       React.createElement('div', { className: 'title-screen' },
         React.createElement('h1', { style: { color: '#f39c12' } }, "O'Ballers"),
         React.createElement('div', { className: 'subtitle' }, '3v3 Half-Court Basketball'),
-        React.createElement('div', { className: 'version' }, 'Alpha 1.1.0 -- test build'),
+        React.createElement('div', { className: 'version' }, 'Alpha 1.1.2'),
         titleMode === 'menu' ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' } },
           React.createElement('button', { onClick: startSoloGame }, 'PLAY SOLO'),
           React.createElement('button', {
@@ -1808,7 +1898,7 @@ function App() {
   // Game over screen
   if (gameState.phase === 'game_over') {
     var winner = gameState.score.home >= WIN_SCORE ? 'HOME' : 'AWAY';
-    return React.createElement('div', { className: 'game-container', ref: containerRef },
+    return React.createElement('div', { className: 'game-container' + (isPortrait ? ' portrait-rotate' : ''), ref: containerRef },
       React.createElement('div', {
         style: {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -1837,10 +1927,10 @@ function App() {
     );
   }
 
-  return React.createElement('div', { className: 'game-container', ref: containerRef },
+  return React.createElement('div', { className: 'game-container' + (isPortrait ? ' portrait-rotate' : ''), ref: containerRef },
     React.createElement('div', { style: { position: 'relative', width: fw, height: fh } },
       // HUD overlay - version text
-      React.createElement('div', { className: 'hud-version' }, 'Alpha 1.1.0 -- test build'),
+      React.createElement('div', { className: 'hud-version' }, 'Alpha 1.1.2'),
       // HUD overlay - score
       React.createElement('div', { className: 'hud-overlay' },
         React.createElement('div', { className: 'hud-pill' },

@@ -1,5 +1,15 @@
 # O'Ballers -- Build Notes
 
+## Alpha 1.1.2 (2026-03-07)
+- Fix: True landscape on portrait phones via CSS rotate(90deg) on game container.
+- Fix: Pointer coordinate transform -- raw clientX/clientY swapped and remapped when rotated.
+- Fix: Letterboxing/pillarboxing -- court constrained to 1.6:1 aspect ratio on all screen shapes. Circles stay circular.
+- Fix: calcDims uses physical screen dimensions when portrait, not CSS-swapped container rect.
+- Fix: Layout values (offsets, game dimensions) cached in ref for pointer handler performance.
+- Fix: Orientation detection via matchMedia (physical rotation only, immune to URL bar jitter).
+- Taps in black bars outside the court are rejected (no phantom inputs).
+- Version updated to Alpha 1.1.2.
+
 ## Alpha 1.1.0 (2026-03-04)
 - Fix: Landscape orientation. calcDims now targets 1.6:1 width:height ratio. Court fills landscape viewport correctly.
 - Fix: Visible OOB border. 5-unit border around the court canvas. Sidelines, baseline, and half-court line are no longer flush against screen edges. Throw-in and baseline OOB events have visible space.
